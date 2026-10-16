@@ -431,4 +431,24 @@ mod tests {
         // The failed call changed nothing: the old allowance still stands.
         assert_eq!(fx.client().get_daily_limit(&fx.token), LIMIT);
     }
+
+    #[test]
+    fn re_setting_a_limit_re_publishes_the_new_pair() {
+        let fx = setup();
+        let replacement = 300i128;
+        fx.env.mock_all_auths();
+        fx.client().set_daily_limit(&fx.token, &replacement);
+        fx.env.set_auths(&[]);
+
+        // The overwrite announces the replacement, not the original LIMIT.
+        let events = last_events(&fx);
+        assert_eq!(events.events().len(), 1);
+        let expected = DailyLimitSet {
+            token: fx.token.clone(),
+            limit: replacement,
+        };
+        assert_eq!(&events.events()[0], &expected.to_xdr(&fx.env, &fx.account));
+        assert_eq!(fx.client().get_daily_limit(&fx.token), replacement);
+        assert_ne!(expected.limit, LIMIT);
+    }
 }
