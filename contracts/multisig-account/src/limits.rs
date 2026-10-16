@@ -173,7 +173,7 @@ mod tests {
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
     use soroban_sdk::{
-        testutils::{Address as _, Ledger as _},
+        testutils::{Address as _, Events as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
         vec, Address, Env, IntoVal, Val,
     };
@@ -360,5 +360,23 @@ mod tests {
     fn setting_a_limit_requires_account_auth() {
         let fx = setup();
         fx.client().set_daily_limit(&fx.token, &5);
+    }
+
+    // ── DailyLimitSet event (issue #646) ────────────────────────────────────
+
+    /// The account's published events from the last invocation, in XDR form.
+    /// `events().all()` covers only the last invocation, so this must be read
+    /// immediately after the call under test.
+    fn last_events(fx: &Fx) -> soroban_sdk::testutils::ContractEvents {
+        fx.env.events().all().filter_by_contract(&fx.account)
+    }
+
+    #[test]
+    fn setting_a_limit_announces_exactly_one_event() {
+        let fx = setup();
+        fx.env.mock_all_auths();
+        fx.client().set_daily_limit(&fx.token, &2_500);
+        fx.env.set_auths(&[]);
+        assert_eq!(last_events(&fx).events().len(), 1);
     }
 }
