@@ -173,9 +173,10 @@ mod tests {
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
     use soroban_sdk::{
+        symbol_short,
         testutils::{Address as _, Events as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
-        symbol_short, vec, Address, Env, IntoVal, Val,
+        vec, Address, Env, IntoVal, Val,
     };
 
     const LIMIT: i128 = 1_000;
