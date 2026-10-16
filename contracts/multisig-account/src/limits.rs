@@ -414,4 +414,17 @@ mod tests {
         };
         assert_eq!(&events.events()[0], &expected.to_xdr(&fx.env, &fx.account));
     }
+
+    #[test]
+    fn rejected_limit_change_emits_no_event() {
+        let fx = setup();
+        fx.env.mock_all_auths();
+        assert_eq!(
+            fx.client().try_set_daily_limit(&fx.token, &-1),
+            Err(Ok(Error::InvalidLimit))
+        );
+        // A refusal is not announced: the publish never runs.
+        let none: soroban_sdk::Vec<(Address, soroban_sdk::Vec<Val>, Val)> = vec![&fx.env];
+        assert_eq!(last_events(&fx), none);
+    }
 }
