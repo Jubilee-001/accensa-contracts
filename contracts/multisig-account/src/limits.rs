@@ -169,13 +169,13 @@ pub(crate) fn authorize_within_limits(
 
 #[cfg(test)]
 mod tests {
-    use super::WINDOW_SECONDS;
+    use super::{DailyLimitSet, WINDOW_SECONDS};
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
     use soroban_sdk::{
         testutils::{Address as _, Events as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
-        vec, Address, Env, IntoVal, Val,
+        vec, Address, Env, Event, IntoVal, Val,
     };
 
     const LIMIT: i128 = 1_000;
@@ -374,9 +374,19 @@ mod tests {
     #[test]
     fn setting_a_limit_announces_exactly_one_event() {
         let fx = setup();
+        let new_limit = 2_500i128;
         fx.env.mock_all_auths();
-        fx.client().set_daily_limit(&fx.token, &2_500);
+        fx.client().set_daily_limit(&fx.token, &new_limit);
         fx.env.set_auths(&[]);
-        assert_eq!(last_events(&fx).events().len(), 1);
+
+        let events = last_events(&fx);
+        assert_eq!(events.events().len(), 1);
+        // The published payload is exactly (token, limit), in the same XDR
+        // form the state-channel tests compare against.
+        let expected = DailyLimitSet {
+            token: fx.token.clone(),
+            limit: new_limit,
+        };
+        assert_eq!(&events.events()[0], &expected.to_xdr(&fx.env, &fx.account));
     }
 }
