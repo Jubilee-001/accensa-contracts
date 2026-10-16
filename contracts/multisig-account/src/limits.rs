@@ -388,5 +388,10 @@ mod tests {
             limit: new_limit,
         };
         assert_eq!(&events.events()[0], &expected.to_xdr(&fx.env, &fx.account));
+
+        // The event reports the very pair that landed in storage.
+        let stored = fx.client().get_daily_limit(&fx.token);
+        assert_eq!(stored, new_limit);
+        assert_eq!(expected.limit, stored);
     }
 }
