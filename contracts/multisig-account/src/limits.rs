@@ -403,7 +403,15 @@ mod tests {
         fx.env.set_auths(&[]);
 
         // The removal is announced, not silent, and the getter agrees.
-        assert_eq!(last_events(&fx).events().len(), 1);
+        let events = last_events(&fx);
+        assert_eq!(events.events().len(), 1);
         assert_eq!(fx.client().get_daily_limit(&fx.token), 0);
+
+        // The clear carries an explicit limit: 0, not the old allowance.
+        let expected = DailyLimitSet {
+            token: fx.token.clone(),
+            limit: 0,
+        };
+        assert_eq!(&events.events()[0], &expected.to_xdr(&fx.env, &fx.account));
     }
 }
