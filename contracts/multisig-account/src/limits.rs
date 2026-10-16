@@ -24,7 +24,7 @@
 //! charged to *each* of them, so no signer can exceed its own quota by
 //! co-signing with another.
 
-use soroban_sdk{
+use soroban_sdk::{
     auth::{Context, ContractContext},
     contractevent, contracttype, symbol_short, Address, Env, TryFromVal, Vec,
 };
@@ -172,7 +172,7 @@ mod tests {
     use super::WINDOW_SECONDS;
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
-    use soroban_sdk{
+    use soroban_sdk::{
         testutils::{Address as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
         vec, Address, Env, IntoVal, Val,
