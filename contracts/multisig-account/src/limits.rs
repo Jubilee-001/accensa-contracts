@@ -423,8 +423,12 @@ mod tests {
             fx.client().try_set_daily_limit(&fx.token, &-1),
             Err(Ok(Error::InvalidLimit))
         );
-        // A refusal is not announced: the publish never runs.
+        // A refusal is not announced: the publish never runs. Read the
+        // events first — the storage query below is its own invocation and
+        // would replace them.
         let none: soroban_sdk::Vec<(Address, soroban_sdk::Vec<Val>, Val)> = vec![&fx.env];
         assert_eq!(last_events(&fx), none);
+        // The failed call changed nothing: the old allowance still stands.
+        assert_eq!(fx.client().get_daily_limit(&fx.token), LIMIT);
     }
 }
