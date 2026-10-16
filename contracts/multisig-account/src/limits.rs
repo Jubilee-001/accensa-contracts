@@ -394,4 +394,16 @@ mod tests {
         assert_eq!(stored, new_limit);
         assert_eq!(expected.limit, stored);
     }
+
+    #[test]
+    fn clearing_a_limit_announces_exactly_one_event_and_reports_zero() {
+        let fx = setup();
+        fx.env.mock_all_auths();
+        fx.client().set_daily_limit(&fx.token, &0);
+        fx.env.set_auths(&[]);
+
+        // The removal is announced, not silent, and the getter agrees.
+        assert_eq!(last_events(&fx).events().len(), 1);
+        assert_eq!(fx.client().get_daily_limit(&fx.token), 0);
+    }
 }
