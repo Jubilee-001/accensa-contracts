@@ -24,7 +24,7 @@
 //! charged to *each* of them, so no signer can exceed its own quota by
 //! co-signing with another.
 
-use soroban_sdk::{
+use soroban_sdk{
     auth::{Context, ContractContext},
     contractevent, contracttype, symbol_short, Address, Env, TryFromVal, Vec,
 };
@@ -172,7 +172,7 @@ mod tests {
     use super::WINDOW_SECONDS;
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
-    use soroban_sdk::{
+    use soroban_sdk{
         testutils::{Address as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
         vec, Address, Env, IntoVal, Val,
@@ -360,5 +360,98 @@ mod tests {
     fn setting_a_limit_requires_account_auth() {
         let fx = setup();
         fx.client().set_daily_limit(&fx.token, &5);
+    }
+
+    #[test]
+    fn daily_limit_set_emits_event_for_nonzero_allowance() {
+        let fx = setup();
+        let events = fx.env.events().all().filter_by_contract(&fx.account);
+        // The setup calls set_daily_limit(&token, &LIMIT), which emits
+        // a DailyLimitSet event. Assert the event payload matches
+        // the (token, limit) pair written to storage.
+        assert_eq!(
+            events.len(),
+            1,
+            "Expected exactly one DailyLimitSet event from setup"
+        );
+        // The event XDR shape from DailyLimitSet { token, limit } is:
+        // (contract_address, (Symbol "daily_limit_set", token_addr), limit_val)
+        // Compare the event data to the expected values.
+        // We verify the event was emitted with the correct token and limit.
+        let event = &events[0];
+        // DailyLimitSet has topic=token and data=limit
+        // Access the event's topics and data to assert the values.
+        // The first topic should be the token address, and the data should be the limit.
+        // Using the XDR comparison pattern from the codebase:
+        assert_eq!(
+            event,
+            &(
+                &fx.env,
+                (
+                    fx.token.clone(),
+                    fx.env
+                        .symbol_short!("daily_limit_set")
+                        .into_val(&fx.env)
+                        .into_val(&fx.env)
+                ),
+                LIMIT.into_val(&fx.env)
+            )
+        );
+    }
+
+    #[test]
+    fn daily_limit_set_clears_with_limit_zero() {
+        let fx = setup();
+        // The setup() calls set_daily_limit(&token, &LIMIT), which emits
+        // one DailyLimitSet event. Capture it so we can verify the
+        // event list grows by exactly one when we clear.
+        let before = fx.env.events().all().filter_by_contract(&fx.account);
+
+        // Clear the daily limit by setting it to 0.
+        // This emits a DailyLimitSet event with limit == 0,
+        // and removes the stored allowance.
+        fx.client().set_daily_limit(&fx.token, &0);
+
+        // The clear path emits DailyLimitSet with limit == 0.
+        let after = fx.env.events().all().filter_by_contract(&fx.account);
+        // Exactly one new event should appear (the clear event).
+        assert_eq!(after.len(), before.len() + 1);
+        // The last emitted event must have limit == 0.
+        let clear_event = &after[after.len() - 1];
+        assert_eq!(
+            clear_event,
+            &(
+                &fx.env,
+                (
+                    fx.token.clone(),
+                    fx.env
+                        .symbol_short!("daily_limit_set")
+                        .into_val(&fx.env)
+                        .into_val(&fx.env)
+                ),
+                0i128.into_val(&fx.env)
+            )
+        );
+        // After clearing, get_daily_limit should report 0.
+        assert_eq!(fx.client().get_daily_limit(&fx.token), 0);
+    }
+
+    #[test]
+    fn negative_limit_is_rejected_emits_no_new_event() {
+        let fx = setup();
+        // Capture the event list before the rejected call.
+        // The setup emits one DailyLimitSet event, so we expect at least that.
+        let before = fx.env.events().all().filter_by_contract(&fx.account);
+
+        // A negative limit is rejected with Error::InvalidLimit
+        // and must not emit a DailyLimitSet event.
+        assert_eq!(
+            fx.client().try_set_daily_limit(&fx.token, &-1),
+            Err(Ok(Error::InvalidLimit))
+        );
+
+        // After the rejection, the event list must be unchanged (no new event).
+        let after = fx.env.events().all().filter_by_contract(&fx.account);
+        assert_eq!(before, after);
     }
 }
