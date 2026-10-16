@@ -173,7 +173,6 @@ mod tests {
     use crate::testutils::make_auth_entry_with_nonce;
     use crate::{Error, MultisigAccount, MultisigAccountClient};
     use soroban_sdk::{
-        symbol_short,
         testutils::{Address as _, Events as _, Ledger as _},
         token::{StellarAssetClient, TokenClient},
         vec, Address, Env, IntoVal, Val,
@@ -374,7 +373,11 @@ mod tests {
                 &fx.env,
                 (
                     fx.account.clone(),
-                    (symbol_short!("daily_limit_set"), fx.token.clone()).into_val(&fx.env),
+                    (
+                        soroban_sdk::Symbol::new(&fx.env, "daily_limit_set"),
+                        fx.token.clone()
+                    )
+                        .into_val(&fx.env),
                     LIMIT.into_val(&fx.env)
                 )
             ]
@@ -395,7 +398,11 @@ mod tests {
                 &fx.env,
                 (
                     fx.account.clone(),
-                    (symbol_short!("daily_limit_set"), fx.token.clone()).into_val(&fx.env),
+                    (
+                        soroban_sdk::Symbol::new(&fx.env, "daily_limit_set"),
+                        fx.token.clone()
+                    )
+                        .into_val(&fx.env),
                     0i128.into_val(&fx.env)
                 )
             ]
