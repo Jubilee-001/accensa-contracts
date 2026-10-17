@@ -417,3 +417,20 @@ fn record_resolution_admits_the_stored_admin_and_persists_the_tier() {
     assert_eq!(badge.accurate_resolutions, 1);
     assert_eq!(s.client.total_badges(), 1);
 }
+
+#[test]
+fn require_authority_reports_not_initialized_for_score_config() {
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    let contract_id = env.register(Reputation, ());
+    let client = ReputationClient::new(&env, &contract_id);
+
+    // `set_score_config` routes through the shared `require_authority` guard;
+    // with no `Admin` entry it must report `NotInitialized` rather than
+    // defaulting to a stored authority.
+    assert_eq!(
+        client.try_set_score_config(&800, &950),
+        Err(Ok(CreditError::NotInitialized))
+    );
+}
