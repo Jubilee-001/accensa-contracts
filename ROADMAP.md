@@ -59,3 +59,8 @@
 - [x] Document `dispute_id`, `oracle`, `payment_ref`, `merchant`, `recipient` and `amount` (#769)
   - `contracts/refund-policy-vdf/src/fallback.rs` — doc comments only; field, type, order and derives unchanged, and no unit invented for `amount`
 
+## Issue #650: Cover the reputation badge authority guard's two failure arms
+
+- [x] Pin the not-initialised, wrong-caller and admitted arms of the reputation authority guard (#650)
+  - `contracts/reputation/src/badges_test.rs` — test-only additions; asserts `NotInitialized`, the host `Abort` for a wrong caller, and the admitted admin's persisted tier
+
