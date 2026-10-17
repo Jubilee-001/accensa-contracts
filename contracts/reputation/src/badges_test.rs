@@ -449,3 +449,15 @@ fn require_authority_reports_not_initialized_for_record_completion() {
         Err(Ok(CreditError::NotInitialized))
     );
 }
+
+#[test]
+fn require_authority_admits_the_bound_admin_for_score_config() {
+    let s = setup();
+    // mock_all_auths from setup() authorises the bound admin, so the write
+    // through `require_authority` is admitted and lands in storage.
+    s.client.set_score_config(&800, &950);
+
+    let config = s.client.get_score_config();
+    assert_eq!(config.gold_tier, 800);
+    assert_eq!(config.zero_fee_tier, 950);
+}
