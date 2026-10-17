@@ -404,3 +404,16 @@ fn refused_record_resolution_leaves_badge_state_untouched() {
     assert_eq!(s.client.get_badge(&s.arbitrator).unwrap(), badge_before);
     assert!(s.client.get_badge(&stranger).is_none());
 }
+
+#[test]
+fn record_resolution_admits_the_stored_admin_and_persists_the_tier() {
+    let s = setup();
+    // mock_all_auths from setup() authorises the bound admin.
+    let count = s.client.record_resolution(&s.arbitrator, &1, &true);
+    assert_eq!(count, 1);
+
+    let badge = s.client.get_badge(&s.arbitrator).unwrap();
+    assert_eq!(badge.tier, BadgeTier::Bronze);
+    assert_eq!(badge.accurate_resolutions, 1);
+    assert_eq!(s.client.total_badges(), 1);
+}
