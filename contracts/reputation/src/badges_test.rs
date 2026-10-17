@@ -434,3 +434,18 @@ fn require_authority_reports_not_initialized_for_score_config() {
         Err(Ok(CreditError::NotInitialized))
     );
 }
+
+#[test]
+fn require_authority_reports_not_initialized_for_record_completion() {
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    let contract_id = env.register(Reputation, ());
+    let client = ReputationClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+
+    assert_eq!(
+        client.try_record_completion(&buyer, &1),
+        Err(Ok(CreditError::NotInitialized))
+    );
+}
