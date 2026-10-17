@@ -367,6 +367,8 @@ mod tests {
         let fx = setup();
         let events = fx.env.events().all().filter_by_contract(&fx.account);
         assert_eq!(events.events().len(), 1);
+        let mut event_data = soroban_sdk::Map::new(&fx.env);
+        event_data.set(soroban_sdk::Symbol::new(&fx.env, "limit"), LIMIT);
         assert_eq!(
             events,
             vec![
@@ -378,7 +380,7 @@ mod tests {
                         fx.token.clone()
                     )
                         .into_val(&fx.env),
-                    LIMIT.into_val(&fx.env)
+                    event_data.into_val(&fx.env)
                 )
             ]
         );
@@ -392,6 +394,8 @@ mod tests {
 
         let after = fx.env.events().all().filter_by_contract(&fx.account);
         assert_eq!(after.events().len(), 1);
+        let mut event_data = soroban_sdk::Map::new(&fx.env);
+        event_data.set(soroban_sdk::Symbol::new(&fx.env, "limit"), 0i128);
         assert_eq!(
             after,
             vec![
@@ -403,7 +407,7 @@ mod tests {
                         fx.token.clone()
                     )
                         .into_val(&fx.env),
-                    0i128.into_val(&fx.env)
+                    event_data.into_val(&fx.env)
                 )
             ]
         );
