@@ -336,3 +336,33 @@ fn tier_boundaries_are_exact() {
     assert_eq!(BadgeTier::for_accurate(100), Some(BadgeTier::Gold));
     assert_eq!(BadgeTier::for_accurate(1_000), Some(BadgeTier::Gold));
 }
+
+// ── Authority guard coverage ─────────────────────────────────────────────
+//
+// `record_resolution` mirrors the private `require_authority` guard
+// (`lib.rs:62-67`): it reads `BadgeDataKey::Admin` from instance storage and
+// rejects with the not-initialised variant when it is absent, then
+// authenticates the stored admin with `require_auth()`. The guard itself is
+// shared with the credit-scoring entry points, so those are driven here too.
+// An unauthenticated caller is refused by the host, which aborts the
+// invocation (`InvokeError::Abort`) rather than returning
+// `Error::Unauthorized`; the wrong-caller arm is pinned as that abort, and
+// the state it leaves behind is checked separately.
+
+#[test]
+fn record_resolution_before_initialize_reports_not_initialized() {
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    let contract_id = env.register(Reputation, ());
+    let client = ReputationClient::new(&env, &contract_id);
+    let arbitrator = Address::generate(&env);
+
+    // No auth is mocked: the call must fail at the guard, not at a signature.
+    assert_eq!(
+        client.try_record_resolution(&arbitrator, &1, &true),
+        Err(Ok(BadgeError::NotInitialized))
+    );
+    assert_eq!(client.total_badges(), 0);
+    assert!(client.get_badge(&arbitrator).is_none());
+}
