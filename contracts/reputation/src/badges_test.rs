@@ -12,6 +12,7 @@ use badges::Error as BadgeError;
 use soroban_sdk::{
     events::Event as _,
     testutils::{Address as _, EnvTestConfig, Events as _},
+    InvokeError,
 };
 
 /// Assert the last invocation emitted exactly `events` (nothing else), in
@@ -365,4 +366,18 @@ fn record_resolution_before_initialize_reports_not_initialized() {
     );
     assert_eq!(client.total_badges(), 0);
     assert!(client.get_badge(&arbitrator).is_none());
+}
+
+#[test]
+fn record_resolution_rejects_a_non_admin_caller() {
+    let s = setup();
+    let stranger = Address::generate(&s.env);
+
+    // Drop the auth mock: the stored admin's `require_auth()` must now fail.
+    s.env.set_auths(&[]);
+
+    assert_eq!(
+        s.client.try_record_resolution(&stranger, &1, &true),
+        Err(Err(InvokeError::Abort))
+    );
 }
