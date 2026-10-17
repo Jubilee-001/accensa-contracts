@@ -381,3 +381,26 @@ fn record_resolution_rejects_a_non_admin_caller() {
         Err(Err(InvokeError::Abort))
     );
 }
+
+#[test]
+fn refused_record_resolution_leaves_badge_state_untouched() {
+    let s = setup();
+    // Mint one badge through the admitted path first.
+    s.client.record_resolution(&s.arbitrator, &1, &true);
+    let total_before = s.client.total_badges();
+    let badge_before = s.client.get_badge(&s.arbitrator).unwrap();
+
+    // Now refuse a different caller without an auth mock.
+    let stranger = Address::generate(&s.env);
+    s.env.set_auths(&[]);
+    assert!(s
+        .client
+        .try_record_resolution(&stranger, &2, &true)
+        .is_err());
+
+    // Nothing moved: the counter and the existing badge are exactly what
+    // they were, and the refused caller holds no badge.
+    assert_eq!(s.client.total_badges(), total_before);
+    assert_eq!(s.client.get_badge(&s.arbitrator).unwrap(), badge_before);
+    assert!(s.client.get_badge(&stranger).is_none());
+}
