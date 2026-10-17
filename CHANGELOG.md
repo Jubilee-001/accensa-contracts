@@ -8,6 +8,10 @@ breaking changes bump the **minor** version, and they are called out as such.
 
 ## [Unreleased]
 
+- **`treasury` (issue #648): burn only buyback tokens actually delivered.**
+  Buyback execution now measures the governance-token balance change around the
+  DEX swap, rejects delivery below the slippage floor or the router's reported
+  amount, and burns and reports only the amount received.
 - **`governance` (issue #670): the constructor iterates its members.**
   `Governance::__constructor` pairs each member with its deposit by zipping the
   two vectors instead of indexing them with `get(i).unwrap()`. The vectors are
