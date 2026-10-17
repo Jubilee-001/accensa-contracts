@@ -199,12 +199,11 @@ pub(crate) fn execute(env: &Env, amount_in: i128, min_amount_out: i128) -> Resul
     Ok(received)
 }
 
+// ── Tests ──────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::{Error, Treasury, TreasuryClient};
     use soroban_sdk::{
-        contract, contractimpl,
         testutils::Address as _,
         token::{StellarAssetClient, TokenClient},
         Address, Env,
@@ -215,57 +214,65 @@ mod tests {
 
     // ── Mock DEX router: over-reporter ──────────────────────────────────────
     // Sends fewer governance tokens than it reports (reports more than it sends).
-    #[contract]
-    #[contractclient(name = "MockDexOverReportClient")]
-    pub struct MockDexOverReport;
+    mod mock_dex_over_report {
+        use soroban_sdk::{contract, contractimpl, token, Address, Env};
 
-    #[contractimpl]
-    impl MockDexOverReport {
-        pub fn swap(
-            env: Env,
-            _token_in: Address,
-            token_out: Address,
-            amount_in: i128,
-            _min_amount_out: i128,
-            recipient: Address,
-        ) -> i128 {
-            let out = amount_in / 2; // actually sends half
-            let reported = amount_in * 2; // reports double (over-report)
-            soroban_sdk::token::Client::new(&env, &token_out).transfer(
-                &env.current_contract_address(),
-                &recipient,
-                &out,
-            );
-            reported
+        #[contract]
+        pub struct MockDexOverReport;
+
+        #[contractimpl]
+        impl MockDexOverReport {
+            pub fn swap(
+                env: Env,
+                _token_in: Address,
+                token_out: Address,
+                amount_in: i128,
+                _min_amount_out: i128,
+                recipient: Address,
+            ) -> i128 {
+                let out = amount_in / 2; // actually sends half
+                let reported = amount_in * 2; // reports double (over-report)
+                token::Client::new(&env, &token_out).transfer(
+                    &env.current_contract_address(),
+                    &recipient,
+                    &out,
+                );
+                reported
+            }
         }
     }
+    use mock_dex_over_report::MockDexOverReport;
 
     // ── Mock DEX router: under-reporter ─────────────────────────────────────
     // Sends more governance tokens than it reports (reports less than it sends).
-    #[contract]
-    #[contractclient(name = "MockDexUnderReportClient")]
-    pub struct MockDexUnderReport;
+    mod mock_dex_under_report {
+        use soroban_sdk::{contract, contractimpl, token, Address, Env};
 
-    #[contractimpl]
-    impl MockDexUnderReport {
-        pub fn swap(
-            env: Env,
-            _token_in: Address,
-            token_out: Address,
-            amount_in: i128,
-            _min_amount_out: i128,
-            recipient: Address,
-        ) -> i128 {
-            let out = amount_in * 2; // actually sends double
-            let reported = amount_in / 2; // reports half (under-report)
-            soroban_sdk::token::Client::new(&env, &token_out).transfer(
-                &env.current_contract_address(),
-                &recipient,
-                &out,
-            );
-            reported
+        #[contract]
+        pub struct MockDexUnderReport;
+
+        #[contractimpl]
+        impl MockDexUnderReport {
+            pub fn swap(
+                env: Env,
+                _token_in: Address,
+                token_out: Address,
+                amount_in: i128,
+                _min_amount_out: i128,
+                recipient: Address,
+            ) -> i128 {
+                let out = amount_in * 2; // actually sends double
+                let reported = amount_in / 2; // reports half (under-report)
+                token::Client::new(&env, &token_out).transfer(
+                    &env.current_contract_address(),
+                    &recipient,
+                    &out,
+                );
+                reported
+            }
         }
     }
+    use mock_dex_under_report::MockDexUnderReport;
 
     // ── Setup ──────────────────────────────────────────────────────────────
     struct Ctx {
@@ -354,6 +361,9 @@ mod tests {
         assert_eq!(burned, 2_000);
         assert_eq!(ctx.balance(&ctx.gov_token, &ctx.burn_address), 2_000);
         // Treasury spent 1,000 fee tokens.
-        assert_eq!(ctx.balance(&ctx.fee_token, &ctx.treasury), FEE_SUPPLY - 1_000);
+        assert_eq!(
+            ctx.balance(&ctx.fee_token, &ctx.treasury),
+            FEE_SUPPLY - 1_000
+        );
     }
 }
