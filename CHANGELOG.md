@@ -8,6 +8,30 @@ breaking changes bump the **minor** version, and they are called out as such.
 
 ## [Unreleased]
 
+- **`receipt-shard` (issue #678): return typed error on missing state in has_live_records.**
+  `has_live_records` returns `Result<bool, Error>` with `Error::NotInitialized` when `StartBatchId` or `EndBatchId` is absent from instance storage instead of trapping.
+- **`privacy` (issue #439): dual-key stealth-address registry for vault deposits.**
+  New `stealth` module on BN254 G1 (the SDK's `bn254` host functions). A
+  recipient publishes a spend key `S` and a view key `V` with
+  `register_stealth_keys`; a buyer derives, off chain, an ephemeral key `R = r*G`
+  and a one-time stealth key `P = S + H(r*V)*G` and calls `stealth_deposit`,
+  which takes the tokens into custody and emits `R` and `P` for the recipient to
+  scan (`P' = S + H(v*R)*G`). `stealth_claim` pays the deposit out against a
+  Schnorr proof of knowledge of `p = s + H(v*R)`, bound to the deposit and to the
+  receiving account, so a proof cannot be replayed or redirected. Errors are a
+  module-local `StealthError`. The derivation helpers
+  (`derive_stealth_address`, `scan_stealth_address`, `stealth_private_key`) are
+  library functions for off-chain code.
+- **`cross-chain` / `governance`: panic paths now return typed errors (#669, #671, #672, #673).**
+  `cross-chain::verify_vaa` no longer unwraps `vaa.signatures.get(i)` or the
+  guardian lookup: signatures are iterated, and a guardian index past the end of
+  the guardian set resolves to `Error::InvalidSignature` before any signature
+  work. `governance::propose` returns `Error::InvalidVotingPeriod` when the
+  voting period is missing from instance storage, and `governance::execute`
+  returns `Error::InvalidMembers`, `Error::InvalidThreshold` and
+  `Error::InvalidVotingPeriod` for a missing total weight, threshold and voting
+  period. `governance::vote_anonymous` iterates its ring instead of indexing it.
+  No new `Error` variants, and no change for any input that was valid before.
 - **`privacy` (issue #609): escrow lifecycle events pinned in XDR form.** New
   `escrow_events` module in `contracts/privacy/src/test.rs` asserts the exact
   XDR of `EscrowCreatedEvent` on `create_escrow` (and that its payload agrees
