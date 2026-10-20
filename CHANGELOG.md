@@ -13,6 +13,11 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   Buyback execution now measures the governance-token balance change around the
   DEX swap, rejects delivery below the slippage floor or the router's reported
   amount, and burns and reports only the amount received.
+- **`reputation` (issue #650): authority guard behavior pinned by tests.**
+  Tests cover calls before initialization, refusal when the stored admin is
+  unauthenticated, unchanged badge state after a refused call, and successful
+  calls by the initialized admin through reputation and credit-scoring entry
+  points. Test-only — no contract behavior change.
 - **`treasury`, `refund-vault`, `state-channel`, `upto-authorization`, `refund-vault-factory` (issues #588, #589, #590, #591): guards, proxy initialization alias tests, and Tier A budget assertions.**
   - **`treasury` (#588):** Added validation tests for `add_schedule` verifying rejection of zero duration and cliff after duration, rejection of duplicate beneficiaries preserving existing schedules untouched, non-admin authorization denial, and round-trip verification with `ScheduleCreatedEvent` captured in test snapshots.
   - **`refund-vault` (#589):** Added WASM-mode Tier A budget assertions pinning CPU ceilings for `claim_batch`, `deploy_to_yield`, and `extend_refund_ttl` with dated baseline measurements and 1.15x headroom.
@@ -48,6 +53,7 @@ exception: while the project is below `1.0.0`, breaking changes bump the
 - **Internal tests (#651, #655, #657):** Pinned the treasury vesting event shapes and the reputation SBT authority gate on `issue`, `revoke` and `slash`, including rejection of non-authority callers without changing storage.
 - **Documentation (#756, #757, #761, #762):** Documented granular event payload fields and refund-vault APIs.
 - **Documentation (#788, #792):** Documented the five public fields of state-channel `MultiAssetChannel` (`sender`, `receiver`, `phase`, `opened_at`, `challenge_period`) and the five of upto-authorization `AuthorizeEvent` (`payment_id`, `from`, `to`, `cap`, `expiry`) for off-chain decoders; comments only, no code change.
+- **Documentation (#775):** Documented the five public fields of governance `OptimisticQueuedEvent` (`proposal_id`, `proposer`, `target`, `function`, `challenge_deadline_ledger`) for off-chain decoders; comments only, no code change.
 - **`refund-vault` / `state-channel` (issues #128, #460):** Add commit-reveal, mock-yield and channel-splicing test suites. New `contracts/refund-vault/src/commit_reveal_tests.rs` pins the commit-reveal front-running mitigation (delayed reveal, single-use commitment, hash-mismatch rejection, merchant-only access); new `contracts/refund-vault/src/yield_tests.rs` adds a mock yield strategy harness covering strategy set/deposit/withdraw/harvest; new `contracts/state-channel/src/splice_test.rs` covers splice-in/splice-out capacity changes, reserved-escrow guards, non-positive amounts and unknown-channel errors. Test-only — no contract behavior change.
 - **Documentation (#787):** Documented the five public fields of state-channel `ChannelOpenedEvent` (`channel_id`, `sender`, `receiver`, `amount`, `challenge_period`) for off-chain decoders; comments only, no code change.
 
@@ -157,6 +163,8 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   setter/getter round-trip. Test-only — no contract behavior change.
 - **`refund-policy-vdf` (issue #702): unit tests for fallback dispute resolution.**
   Extended `contracts/refund-policy-vdf/src/test.rs` with coverage for `request_dispute`, `oracle_request_bytes`, and `settle_dispute`.
+- **`receipt-shard` (issue #699): unit tests for decommission, record_anchor, and record_removals.**
+  Extended `contracts/receipt-shard/src/consolidation_test.rs` with coverage for shard decommissioning and diagnostics counter updates.
 - **`stream-vault` / `multisig-account` (issues #752, #754): rustdoc coverage
   for the exported surface missing `///` comments.**
   `contracts/stream-vault/src/lib.rs` now documents `DataKey`, `StreamVault`,
@@ -328,8 +336,8 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   equals the sum of the still-pending payments' amounts; that
   `HashlockPaymentCount` allocates distinct sequential ids that a resolve
   neither rewinds nor reuses; and that a reveal and a timed-out HTLC refund
-  each release exactly their own amount, with a double reveal rejected and
-  the reserve left at the pending sum. Test-only — no contract behavior
+  each release exactly their own amount, with a double reveal rejected and the
+  reserve left at the pending sum. Test-only — no contract behavior
   change.
 - security(multisig): implement 14-day TTL expiration for pending signatures and approvals (#449)
 - **`nft` (issue #453): Discount coupon NFTs for merchant stores.** New coupon
@@ -362,8 +370,8 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   the floor, otherwise `Rejected`; a second verification of the same escrow
   fails with `Error::AlreadyVerified`. `Error` is crate-local on purpose, so
   growing it does not enlarge the WASM spec of the contracts that share
-  `accensa_common::Error`. The commitment is `sha256(value || blinding)` and the
-  verifier is structural rather than pairing-based, because Soroban exposes no
+  `accensa_common::Error`. The commitment is `sha256(value || blinding)` and
+  the verifier is structural rather than pairing-based, because Soroban exposes no
   curve arithmetic — both are documented in the module as stand-ins.
 - **`cross-chain` (issue #454): Axelar gateway deposit adapter.** New `axelar`
   module lets users on Ethereum, Polygon and other Axelar-chains fund Soroban
@@ -390,7 +398,7 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   collateral withdrawal that leaves debt unbacked. Includes 16 tests
   covering accrual, liquidity, collateral, settlement, and the withdrawal
   safeguard.
-- **`receipt-shard` (issue #437): shard storage consolidation.** Router-authorized source shards can migrate exact `BatchRecord` values into a destination shard, verify the returned record before deletion, emit `ShardsConsolidated`, and mark drained sources inactive to stop further writes.
+- **`receipt-shard` (issue #437): shard storage consolidation.** Router-authorized source shards can migrate exact `BatchRecord` values into a destination shard, verify the returned record before [...]
 - **`state-channel` (issue #431): anti-sniping late counter-proof extension.** A
   valid counter-proof submitted within the final 50 ledgers of the dispute window
   now pushes the deadline back by 50 ledgers so the honest party has time to
