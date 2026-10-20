@@ -66,11 +66,23 @@ enum FallbackDataKey {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FallbackDisputeRequestedEvent {
     #[topic]
+    /// Id assigned by `request_dispute`: the instance `Count` plus one, so the
+    /// first escalation is 1.
     pub dispute_id: u32,
+    /// The oracle named by the escalation caller — the only address whose
+    /// `require_auth` lets `settle_dispute` through.
     pub oracle: Address,
+    /// The 32-byte payment reference the dispute is about, copied unchanged
+    /// from the caller.
     pub payment_ref: BytesN<32>,
+    /// The merchant that escalated, and whose auth `request_dispute` requires
+    /// before recording anything.
     pub merchant: Address,
+    /// The refund recipient named by the escalation caller.
     pub recipient: Address,
+    /// The disputed amount as passed in by the caller; this crate only checks
+    /// it is greater than zero (`Error::InvalidAmount` otherwise) and never
+    /// rescales it.
     pub amount: i128,
 }
 
@@ -92,6 +104,15 @@ pub struct FallbackDisputeSettledEvent {
 /// the outcome can be audited off-chain after the fact.
 const DISPUTE_TTL: u32 = 518_400;
 
+/// Escalates a refund dispute to the fallback oracle `oracle` on behalf of
+/// `merchant`: records an open [`FallbackDispute`] under the next
+/// incrementing id, extends its persistent TTL and publishes a
+/// [`FallbackDisputeRequestedEvent`], returning the assigned id.
+///
+/// Pre-condition: `merchant` must authorize the call
+/// (`merchant.require_auth()`, which aborts the invocation when its auth is
+/// missing). Returns `Err(Error::InvalidAmount)` when `amount` is not
+/// strictly positive; otherwise `Ok(id)` — no other failure arm is possible.
 pub(crate) fn request_dispute(
     env: &Env,
     merchant: &Address,
@@ -155,6 +176,16 @@ pub(crate) fn oracle_request_bytes(env: &Env, dispute_id: u32) -> Result<Bytes, 
     Ok(dispute.to_xdr(env))
 }
 
+/// Settles `dispute_id` with the fallback oracle's ruling — `refund == true`
+/// refunds, `false` denies — by marking the stored [`FallbackDispute`] closed
+/// and publishing a [`FallbackDisputeSettledEvent`].
+///
+/// Returns `Err(Error::DisputeNotFound)` when no dispute is stored under the
+/// id, `Err(Error::DisputeClosed)` when the dispute exists but is already
+/// settled, and otherwise `Ok(())`. Pre-condition for that success arm: the
+/// dispute's designated `oracle` must authorize the call
+/// (`dispute.oracle.require_auth()`, aborting the invocation otherwise), so
+/// no third party can force a ruling.
 pub(crate) fn settle_dispute(env: &Env, dispute_id: u32, refund: bool) -> Result<(), Error> {
     let key = FallbackDataKey::Dispute(dispute_id);
     let mut dispute: FallbackDispute = env
@@ -184,6 +215,12 @@ pub(crate) fn settle_dispute(env: &Env, dispute_id: u32, refund: bool) -> Result
     Ok(())
 }
 
+/// Reads the [`FallbackDispute`] stored under `dispute_id`, whether it is
+/// still open or already settled.
+///
+/// Returns `Err(Error::DisputeNotFound)` when no dispute is recorded under
+/// the id (it never existed, or its persistent entry expired); otherwise
+/// `Ok(dispute)`. Read-only: it requires no authorization and writes nothing.
 pub(crate) fn get_dispute(env: &Env, dispute_id: u32) -> Result<FallbackDispute, Error> {
     env.storage()
         .persistent()
