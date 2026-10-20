@@ -22,6 +22,7 @@
 - [x] Document the publicly exported fields of `YieldInfo` in refund-vault (#785)
 - [x] Document the publicly exported fields of `CouponAppliedEvent` in refund-vault (#783)
 - [x] Document the publicly exported fields of `HtlcAddedEvent` in state-channel (#786)
+- [x] Document the publicly exported fields of `OptimisticQueuedEvent` in governance (#775)
 ## Issue #660: PR template verification step runs the full workspace suite
 
 - [x] Point the PR template's Verification checkbox at `cargo test --workspace` (#660)
@@ -85,10 +86,10 @@
 - [x] Document `dispute_id`, `oracle`, `payment_ref`, `merchant`, `recipient` and `amount` (#769)
   - `contracts/refund-policy-vdf/src/fallback.rs` — doc comments only; field, type, order and derives unchanged, and no unit invented for `amount`
 
-## Issue #678: error arm for absent state in receipt-shard::has_live_records
+## Issue #650: Cover the reputation badge authority guard's two failure arms
 
-- [x] `has_live_records` returns `Result<bool, Error>` with `Error::NotInitialized` on missing state (#678)
-  - `contracts/receipt-shard/src/consolidation.rs` — returns typed error instead of unwrap on missing `StartBatchId` or `EndBatchId`
+- [x] Pin the not-initialised, wrong-caller and admitted arms of the reputation authority guard (#650)
+  - `contracts/reputation/src/badges_test.rs` — test-only additions; asserts `NotInitialized`, the host `Abort` for a wrong caller, and the admitted admin's persisted tier
 
 ## Issue #683: error arm for absent state in refund-vault::get_domain_separator
 
