@@ -8,12 +8,127 @@ exception: while the project is below `1.0.0`, breaking changes bump the
 **minor** version, and they are called out as such.
 
 ## [Unreleased]
+- **`treasury` (issue #606): assert buyback and fee-liquidation events and their config key.**
+  Field-by-field XDR shape assertions for `BuybackConfiguredEvent`, `BuybackExecutedEvent`, and `FeesLiquidatedEvent`, including AMM round-trip reconfiguration tests and no-event checks for rejected swaps. Test-only — no contract behavior change.
+- **`refund-policy-vdf` (issue #601): Tier A CPU ceilings for the VDF delay
+  proof path.** New `contracts/refund-policy-vdf/src/budget_test.rs` gates
+  `evaluate` at delay 0, 1 and `u32::MAX`, `generate_randomness`, and the
+  fallback dispute request/settle paths with `#[budget_cpu_lt]`, behind the
+  new `budget-assert` feature and optional `budget_macros` dependency. The
+  delay gates record the measured baselines; verification cost is flat in the
+  delay because the transcript-derived prime search dominates, and the
+  zero-delay no-gate path is gated separately and much tighter. Test-only —
+  the modulus, `MR_BASES`, delay types and contract behaviour are unchanged.
+- **Internal tests (#655, #657):** Pinned the treasury vesting event shapes and the reputation SBT authority gate on `issue`, `revoke` and `slash`.
+- **Documentation (#756, #757, #761, #762):** Documented granular event payload fields and refund-vault APIs.
 
 - **`multisig-account` (issue #413): daily spending limits for sub-threshold
   signers.** Governance can configure a per-token daily allowance for routine
   transfers authorized by fewer than the full threshold. Spending is tracked
   per signer and token in 24-hour ledger-time windows; other calls and spends
   beyond the remaining allowance still require the full threshold.
+- **`receipt-shard` / `upto-authorization` (issues #781, #793): rustdoc for
+  the undocumented public fields of `BatchRecord` and `AuthorizationRecord`.**
+  Each of the 5 fields of `BatchRecord` in `contracts/receipt-shard/src/lib.rs`
+  (`root`, `count`, `period_start`, `period_end`, `anchored_ledger`) and each
+  of the 5 named fields of `AuthorizationRecord` in
+  `contracts/upto-authorization/src/types.rs` (`from`, `to`, `cap`, `expiry`,
+  `consumed`) now carries a `///` stating the unit or domain of the value and
+  the code paths that write and read it. Doc comments only — no field, type,
+  order or derive change, and no behavior change.
+- **`state-channel` (issue #728): compute the HTLC reservation total with
+  checked arithmetic.** `htlc::add` now combines `already_reserved` and the
+  new hop's `amount` through `accensa_common::math::add_amounts`, so an
+  out-of-range sum surfaces `Error::MathOverflow` instead of relying on the
+  release profile's overflow trap. The escrow ceiling check immediately above
+  keeps every reachable sum in range; the new
+  `contracts/state-channel/src/htlc_overflow_test.rs` drives the reservation
+  total to exactly `i128::MAX` and pins the typed rejection one stroop past it.
+- **`receipt-anchor` (issue #744): rustdoc for `lib.rs`'s 6 undocumented
+  public items.** `contracts/receipt-anchor/src/lib.rs` now documents
+  `DataKey`, `ReceiptAnchor`, `initialize` (its no-auth, once-only pre-condition
+  plus the `Error::AlreadyInitialized` arm), `get_batch` and `verify_receipt`
+  (the `BatchNotFound` / `ProofTooLong` / `ShardCallFailed` arms) and the
+  read-only `get_shard_capacity`. Doc comments only — no signature, body,
+  ordering or test change, and `missing_docs` is deliberately not enabled.
+- **`common` (issue #745): rustdoc for the reentrancy module's 4 exported
+  names.** `contracts/common/src/reentrancy.rs` now documents
+  `ReentrancyDataKey`, `ReentrancyGuard`, `acquire` (pre-condition plus the
+  `Error::ReentrancyBlocked` arm) and `release`. Doc comments only — no
+  signature, body, ordering or test change.
+- **`receipt-shard` (issue #679): `prune_batches` returns a typed error
+  instead of trapping.** `prune_batches` now returns `Result<(u64, u64),
+  Error>`; its three construction-time instance reads (`Router`, `EndBatchId`,
+  `PrunedUpTo`) answer `Error::NotInitialized` when the key is absent — before
+  the shard is constructed, or after the instance entry has aged out — instead
+  of aborting the host call through `.unwrap()`. The success return type is
+  unchanged, so existing callers and the router's `ShardInterface` trait keep
+  their wire shape. New `contracts/receipt-shard/tests/prune_before_init.rs`
+  pins the typed error on all three read sites before initialisation.
+- **`reputation` (issue #726): guard `record_fraud`'s penalty product against
+  overflow.** `record_fraud` now computes its basis-point penalty with
+  `u128::checked_mul` instead of a bare `*`, so it no longer relies on the
+  release profile's `overflow-checks = true` trapping the host call. Both
+  factors are `u64`, and `(2^64 - 1)^2 < 2^128`, so the product is exact for
+  every score; the failure arm is a stated precondition rather than a new
+  error variant, since `CreditError` is out of scope. New
+  `contracts/reputation/src/credit_score_fraud_overflow_test.rs` drives
+  `old_score = u64::MAX` through the public entry point and asserts the exact
+  returned score instead of a host abort.
+- **`state-channel` (issue #727): compute the hashlock reservation total with
+  checked arithmetic.** `hashlock::add` now combines `already_reserved` and the
+  new payment's `amount` through `accensa_common::math::add_amounts`, so an
+  out-of-range sum surfaces `Error::MathOverflow` instead of relying on the
+  release profile's overflow trap. The escrow ceiling check immediately above
+  keeps every reachable sum in range; the new
+  `contracts/state-channel/src/hashlock_overflow_test.rs` drives the
+  reservation total to exactly `i128::MAX` and pins the typed rejection when
+  the next reservation update would step past it.
+- **`reputation` (issue #724): guard `apply_decay`'s final addition against
+  overflow.** The `SCORE_FLOOR + decayed` sum in `apply_decay` now uses
+  `checked_add` with an explicit failure arm instead of a bare `+`, so it no
+  longer relies on the release profile's `overflow-checks = true` trapping
+  the host call. Because the helper returns a plain `u64`, the arm is a
+  stated precondition rather than a typed error: `decayed` is the remainder
+  of the headroom `score - SCORE_FLOOR`, so the sum is at most `score` and
+  fits in `u64` for every input. New
+  `contracts/reputation/src/credit_score_decay_overflow_test.rs` drives
+  `u64::MAX`, the zero-remainder boundary and the saturated-interval case.
+- **`refund-vault` (issue #723): guard `recall_principal`'s sums against
+  overflow.** Both arithmetic sites in `contracts/refund-vault/src/strategy.rs`
+  now call `accensa_common::math::add_amounts` instead of a bare `+`: the
+  strategy-reported `principal_returned + yield_returned` balance cross-check
+  and the `HarvestedYield` accumulation. Because `[profile.release]` enables
+  `overflow-checks` with `panic = "abort"`, a raw `+` aborted the host call;
+  the checked helper surfaces the typed `Error::MathOverflow` (321) instead.
+  New `contracts/refund-vault/src/recall_principal_overflow_tests.rs` drives
+  both sums to `i128::MAX` and asserts the typed arm rather than a panic.
+- **`accensa-common` (issue #570): inline tests for the shared nonce bitmap.**
+  `contracts/common/src/nonce.rs` gains an inline `#[cfg(test)]` suite pinning
+  `NonceBitmap::is_revoked`'s LSB-first bit order across all 32 bytes, the
+  256-slot aliasing produced by `nonce % 256` (nonce 0 and nonce 256 address
+  the same bit; every answer depends only on `nonce % 256`), and that reads
+  at the bitmap's edges — including the `u64` extremes that alias onto bit
+  255 — never panic and default to not revoked. The suite cross-checks the
+  bit layout against `state-channel`'s `NonceWindow` read formula
+  (`contracts/state-channel/src/nonce.rs`), the agreement both types'
+  documentation promises. Test-only — no contract behavior change; the type
+  stays exported with no production caller.
+### Removed
+- Issue #572: Removed the uncompiled, unreferenced source files `contracts/governance/src/liquid_staking_impl.rs`, `contracts/refund-vault/src/guard.rs`, and `contracts/refund-vault/src/test/test/refund_vectors.rs`. No compiled contract behavior changed.
+- **`reputation` (issue #725): guard `record_completion`'s growth product and
+  sum against overflow.** `record_completion` now computes its growth with
+  `u128::checked_mul` and applies it with `u64::checked_add` instead of a bare
+  `*` and `+`, so neither line depends on the release profile's
+  `overflow-checks = true` trapping the host call. Both failure arms are
+  stated preconditions rather than a new error variant, since `CreditError` is
+  out of scope: `headroom` is capped by `MAX_SCORE` before the multiplication,
+  and `GROWTH_RATE_BPS` (2_500) sits under its 10_000 denominator, so `growth
+  <= headroom` and the sum never passes `MAX_SCORE`. New
+  `contracts/reputation/src/credit_score_completion_overflow_test.rs` drives
+  both operands to their reachable maximum through the public entry point and
+  asserts the exact returned score instead of a host abort.
+- test: assert the dispute, counter-evidence and claim event shapes (#895).
 - **`treasury` (issue #648): burn only buyback tokens actually delivered.**
   Buyback execution now measures the governance-token balance change around the
   DEX swap, rejects delivery below the slippage floor or the router's reported
@@ -30,6 +145,16 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   - **`refund-vault-factory` (#591):** Added `initialize_alias` test module asserting proxy initialization matching constructor state, `AlreadyInitialized` protection on repeat calls, and non-admin authorization denial.
 
 - **Documentation (#750, #751):** Documented the 4 public items of refund-vault `nft_escrow` (`deposit`, `claim`, `refund`, `get`) and the 4 of state-channel `multi_asset` (`MultiAssetChannelOpenedEvent`, `MultiAssetSettledEvent`, `open`, `get`) with `///` rustdoc, covering role, pre-conditions and each `Error` arm for off-chain integrators; comments only, no code change.
+- **`state-channel` (issue #627): route the HTLC preimage check through the
+  constant-time comparator.** `contracts/state-channel/src/htlc.rs` now calls
+  `accensa_common::constant_time::constant_time_eq` for the hash-lock preimage
+  comparison, removing a byte-wise timing signal on secret-derived input. The
+  two other audited comparisons — guardian addresses in
+  `contracts/cross-chain/src/wormhole.rs` and Merkle roots in
+  `contracts/receipt-shard/src/lib.rs` — are public-data-only and now say so at
+  the call site. The comparator's unit tests cover equal, empty, first-byte and
+  last-byte differences and both length-mismatch directions. Accept/reject
+  decisions are unchanged.
 - **`cross-chain` (issue #618): pin the Axelar replay guard and credited balance
   keys by tests.** New `replay_guard_and_credited_keys` module in
   `contracts/cross-chain/src/axelar_test.rs` asserts that a duplicate message id
@@ -55,6 +180,8 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   rejected with `StrategyNotApproved` at both registration and deployment; and
   that re-approving is idempotent (one revoke clears it). Test-only — no
   contract behavior change.
+- **Documentation (#780):** Documented the public fields of receipt-shard `ShardStats`.
+- **Internal tests (#655, #657):** Pinned the treasury vesting event shapes and the reputation SBT authority gate on `issue`, `revoke` and `slash`.
 - **Internal tests (#651, #655, #657):** Pinned the treasury vesting event shapes and the reputation SBT authority gate on `issue`, `revoke` and `slash`, including rejection of non-authority callers without changing storage.
 - **Documentation (#756, #757, #761, #762):** Documented granular event payload fields and refund-vault APIs.
 - **Documentation (#788, #792):** Documented the five public fields of state-channel `MultiAssetChannel` (`sender`, `receiver`, `phase`, `opened_at`, `challenge_period`) and the five of upto-authorization `AuthorizeEvent` (`payment_id`, `from`, `to`, `cap`, `expiry`) for off-chain decoders; comments only, no code change.
@@ -168,6 +295,8 @@ exception: while the project is below `1.0.0`, breaking changes bump the
   setter/getter round-trip. Test-only — no contract behavior change.
 - **`refund-policy-vdf` (issue #702): unit tests for fallback dispute resolution.**
   Extended `contracts/refund-policy-vdf/src/test.rs` with coverage for `request_dispute`, `oracle_request_bytes`, and `settle_dispute`.
+- **`refund-policy-time` (issue #701): unit tests for check_time_gates.**
+  Extended `contracts/refund-policy-time/src/oracle_test.rs` with coverage for `check_time_gates` window and deadline gates.
 - **`receipt-shard` (issue #699): unit tests for decommission, record_anchor, and record_removals.**
   Extended `contracts/receipt-shard/src/consolidation_test.rs` with coverage for shard decommissioning and diagnostics counter updates.
 - **`stream-vault` / `multisig-account` (issues #752, #754): rustdoc coverage
@@ -1449,6 +1578,3 @@ the transactions that created them are recorded in
 [0.3.0]: https://github.com/accensa/accensa-contracts/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/accensa/accensa-contracts/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/accensa/accensa-contracts/releases/tag/v0.1.0
-
-## [Unreleased]
-- Fixed issues
