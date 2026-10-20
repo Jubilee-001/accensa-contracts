@@ -118,6 +118,25 @@
   - `contracts/refund-vault/src/settlement.rs` — typed `Error::MathOverflow` instead of a host abort
   - `contracts/refund-vault/src/preview_settlement_overflow_tests.rs` — boundary test pins both operands at `i128::MAX` and asserts the returned error variant
 
+## Issue #696: cover `governance::burn` and the ragequit path
+
+- [x] Cover `LiquidStaking::burn`, `ragequit::{is_approved, process}` and the `ArityMismatch`/`InvalidMembers` constructor variants (#696)
+  - `contracts/governance/tests/receipt_anchor_admin.rs` — integration tests only, no `src/` changes
+
+## Issue #697: cover `receipt-anchor::{topic, publish, canonical_message}`
+
+- [x] Cover `ReceiptAction::topic`, `events::publish` and `signatures::canonical_message` (#697)
+  - `contracts/receipt-anchor/src/budget_test.rs` — tests only, no contract source changes
+
+## Issue #698: cover `receipt-anchor::{verify_batch_zk_proof, fold_proof, get_min_anchor_interval}`
+
+- [x] Cover `zk_verifier::verify_batch_zk_proof`, `merkle::fold_proof` and `ReceiptAnchor::get_min_anchor_interval` (#698)
+  - `contracts/receipt-anchor/src/fuzz_test.rs` — tests only, no contract source changes
+
+## Issue #695: cover `cross-chain::{execute_withdrawal_to_evm, get_destination_chain_id, is_trusted_peer}`
+
+- [x] Cover `outbound::execute_withdrawal_to_evm`, `get_destination_chain_id` and `is_trusted_peer` (#695)
+  - `contracts/cross-chain/src/wormhole_test.rs` — tests only, no contract source changes
 ## Issue #652: test: Pin the oracle admin getter and the round staleness bound
 
 - [x] Pin `get_admin` unset/bound states, the typed `AlreadyInitialized` double-initialize guard, and the inclusive staleness boundary in `contracts/oracle/src/staleness_test.rs` (#652)
@@ -210,6 +229,29 @@
 - [x] Point the supported-versions table at the 0.3.x release line (#661)
   - `SECURITY.md` — supported and unsupported version rows; the 0.1.0 testnet note is unchanged
 
+## Issue #716: guard `calculate_slashing_penalty`'s product before it can trap
+
+- [x] Route `calculate_slashing_penalty`'s `amount * penalty` through the checked `accensa_common::math` helpers (#716)
+  - `contracts/refund-policy-vdf/src/slashing.rs` — decomposition keeps both products in range; the `penalty <= 100` precondition is the stated failure arm, no clamp
+  - `contracts/refund-policy-vdf/src/slashing_overflow_tests.rs` — boundary test drives `i128::MAX` and asserts the exact penalty
+
+## Issue #717: check the product in `refund-vault::refund_fee` against overflow
+
+- [x] Route `refund_fee`'s fee decomposition through the checked `accensa_common::math` helpers (#717)
+  - `contracts/refund-vault/src/lib.rs` — `mul_amounts`/`add_amounts`/`div_amounts` instead of bare operators; `fee_bps <= 10_000` is the stated precondition
+  - `contracts/refund-vault/src/refund_fee_overflow_tests.rs` — boundary test drives `i128::MAX` at the maximum fee rate
+
+## Issue #718: check the sum in `refund-vault::claim_single` against overflow
+
+- [x] Route `claim_single`'s `previous_refunded + claim.amount` through `add_amounts` (#718)
+  - `contracts/refund-vault/src/lib.rs` — typed `Error::MathOverflow` instead of a host abort
+  - `contracts/refund-vault/src/claim_single_overflow_tests.rs` — boundary test pins the stored total at `i128::MAX - 1` and claims two more units
+
+## Issue #719: guard `deploy_to_yield`'s product/sum before it can trap
+
+- [x] Route `deploy_to_yield`'s totals, ratios and post-deployment sum through the checked `accensa_common::math` helpers (#719)
+  - `contracts/refund-vault/src/lib.rs` — `add_amounts`/`sub_amounts`/`mul_ratio` instead of bare operators
+  - `contracts/refund-vault/src/deploy_to_yield_overflow_tests.rs` — boundary tests drive the total, reserve-ratio product and max-deploy product to the type's maximum
 ## Issue #777: Add /// to BatchRecord's exported fields
 
 - [x] Add `///` doc comments to `BatchRecord`'s five exported fields (#777)
